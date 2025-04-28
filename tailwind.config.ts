@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -84,11 +85,37 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'fade-in': {
+					"0%": {
+						opacity: "0",
+						transform: "translateY(10px)"
+					},
+					"100%": {
+						opacity: "1",
+						transform: "translateY(0)"
+					}
+				},
+				'word-highlight': {
+					"0%": { backgroundColor: "rgba(139, 92, 246, 0.3)" },
+					"50%": { backgroundColor: "rgba(139, 92, 246, 0.5)" },
+					"100%": { backgroundColor: "rgba(139, 92, 246, 0.3)" }
+				},
+				typing: {
+					"0%": { width: "0%" },
+					"100%": { width: "100%" }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'fade-in': 'fade-in 0.3s ease-out',
+				'word-highlight': 'word-highlight 1.5s infinite',
+				'typing': 'typing 3.5s steps(40, end)'
+			},
+			backgroundImage: {
+				'gradient-blue-purple': 'linear-gradient(90deg, hsla(277, 75%, 84%, 1) 0%, hsla(297, 50%, 51%, 1) 100%)',
+				'gradient-dark': 'linear-gradient(180deg, #1A1F2C 0%, #2D3748 100%)'
 			}
 		}
 	},
