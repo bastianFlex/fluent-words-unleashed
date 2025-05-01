@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { 
   LanguageMode, 
@@ -6,7 +5,8 @@ import {
   Sentence, 
   TypingStats,
   HistoryEntry,
-  AudioOptions
+  AudioOptions,
+  TimerMode
 } from '@/types/typing';
 import { getSentences } from '@/data/sentences';
 import { useToast } from "@/components/ui/use-toast";
@@ -19,6 +19,7 @@ interface TypingContextProps {
   stats: TypingStats;
   history: HistoryEntry[];
   audioOptions: AudioOptions;
+  timerMode: TimerMode;
   changeLanguage: (lang: LanguageMode) => void;
   changeDifficulty: (diff: DifficultyLevel) => void;
   updateTypedText: (text: string) => void;
@@ -28,6 +29,7 @@ interface TypingContextProps {
   resetTimer: () => void;
   playAudio: (text: string, targetLanguage: string) => void;
   changeAudioSpeed: (speed: 'normal' | 'slow') => void;
+  changeTimerMode: (mode: TimerMode) => void;
 }
 
 const TypingContext = createContext<TypingContextProps | undefined>(undefined);
@@ -50,6 +52,7 @@ export const TypingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [audioOptions, setAudioOptions] = useState<AudioOptions>({
     speed: 'normal'
   });
+  const [timerMode, setTimerMode] = useState<TimerMode>('3min');
   const { toast } = useToast();
   
   // Stats
@@ -59,7 +62,8 @@ export const TypingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     correctKeystrokes: 0,
     incorrectKeystrokes: 0,
     timer: 0,
-    isActive: false
+    isActive: false,
+    timerMode: '3min'
   });
   
   // Timer interval
@@ -131,15 +135,60 @@ export const TypingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [typedText, currentSentence, stats.timer, stats.isActive]);
   
-  // Timer logic
+  // Timer logic with time limits
   useEffect(() => {
     if (stats.isActive && !timerInterval) {
       const interval = setInterval(() => {
-        setStats(prev => ({
-          ...prev,
-          timer: prev.timer + 1
-        }));
+        setStats(prev => {
+          // For infinite mode, just increment the timer
+          if (timerMode === 'infinite') {
+            return {
+              ...prev,
+              timer: prev.timer + 1
+            };
+          }
+          
+          // For timed modes, check if we've reached the limit
+          const timeLimit = parseInt(timerMode) * 60;
+          const newTimer = prev.timer + 1;
+          
+          // If time is up, stop the timer
+          if (newTimer >= timeLimit) {
+            clearInterval(interval);
+            
+            // Show time's up message
+            toast({
+              title: "Time's up!",
+              description: `Your session has ended. WPM: ${prev.wpm} | Accuracy: ${prev.accuracy}%`,
+            });
+            
+            // Add to history
+            const newEntry: HistoryEntry = {
+              id: Date.now().toString(),
+              date: new Date().toISOString(),
+              language,
+              difficulty,
+              wpm: prev.wpm,
+              accuracy: prev.accuracy,
+              duration: prev.timer
+            };
+            
+            setHistory(oldHistory => [newEntry, ...oldHistory]);
+            
+            return {
+              ...prev,
+              timer: newTimer,
+              isActive: false
+            };
+          }
+          
+          return {
+            ...prev,
+            timer: newTimer
+          };
+        });
       }, 1000);
+      
       setTimerInterval(interval);
     } else if (!stats.isActive && timerInterval) {
       clearInterval(timerInterval);
@@ -151,7 +200,15 @@ export const TypingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         clearInterval(timerInterval);
       }
     };
-  }, [stats.isActive]);
+  }, [stats.isActive, timerMode]);
+  
+  // Update stats when timer mode changes
+  useEffect(() => {
+    setStats(prev => ({
+      ...prev,
+      timerMode
+    }));
+  }, [timerMode]);
   
   // Complete typing and save to history
   const completeTyping = useCallback(() => {
@@ -163,18 +220,21 @@ export const TypingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       isActive: false
     }));
     
-    // Add to history
-    const newEntry: HistoryEntry = {
-      id: Date.now().toString(),
-      date: new Date().toISOString(),
-      language,
-      difficulty,
-      wpm: stats.wpm,
-      accuracy: stats.accuracy,
-      duration: stats.timer
-    };
-    
-    setHistory(prev => [newEntry, ...prev]);
+    // Don't add to history in infinite mode if just completing one sentence
+    if (timerMode !== 'infinite') {
+      // Add to history
+      const newEntry: HistoryEntry = {
+        id: Date.now().toString(),
+        date: new Date().toISOString(),
+        language,
+        difficulty,
+        wpm: stats.wpm,
+        accuracy: stats.accuracy,
+        duration: stats.timer
+      };
+      
+      setHistory(prev => [newEntry, ...prev]);
+    }
     
     // Show completion message
     toast({
@@ -184,11 +244,16 @@ export const TypingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     // Go to next sentence after a short delay
     setTimeout(() => {
-      nextSentence();
+      // In infinite mode, just move to next sentence without resetting stats
+      if (timerMode === 'infinite') {
+        nextSentenceWithoutReset();
+      } else {
+        nextSentence();
+      }
     }, 1500);
-  }, [currentSentence, language, difficulty, stats]);
+  }, [currentSentence, language, difficulty, stats, timerMode]);
   
-  // Next sentence
+  // Next sentence with full reset
   const nextSentence = useCallback(() => {
     if (availableSentences.length === 0) return;
     
@@ -209,6 +274,34 @@ export const TypingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     resetTimerState();
   }, [availableSentences, currentSentence]);
   
+  // Next sentence without resetting stats (for infinite mode)
+  const nextSentenceWithoutReset = useCallback(() => {
+    if (availableSentences.length === 0) return;
+    
+    // Pick a different sentence
+    let randomIndex;
+    let newSentence;
+    
+    do {
+      randomIndex = Math.floor(Math.random() * availableSentences.length);
+      newSentence = availableSentences[randomIndex];
+    } while (
+      availableSentences.length > 1 && 
+      newSentence.text === currentSentence?.text
+    );
+    
+    setCurrentSentence(newSentence);
+    setTypedText('');
+    
+    // Resume timer if in infinite mode
+    if (timerMode === 'infinite') {
+      setStats(prev => ({
+        ...prev,
+        isActive: true
+      }));
+    }
+  }, [availableSentences, currentSentence, timerMode]);
+  
   // Reset timer state
   const resetTimerState = () => {
     setStats({
@@ -217,7 +310,8 @@ export const TypingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       correctKeystrokes: 0,
       incorrectKeystrokes: 0,
       timer: 0,
-      isActive: false
+      isActive: false,
+      timerMode
     });
     
     if (timerInterval) {
@@ -226,6 +320,31 @@ export const TypingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
   
+  // Change timer mode
+  const changeTimerMode = useCallback((mode: TimerMode) => {
+    setTimerMode(mode);
+    
+    // Reset timer when changing modes
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      setTimerInterval(null);
+    }
+    
+    setStats(prev => ({
+      ...prev,
+      timerMode: mode,
+      isActive: false,
+      timer: 0
+    }));
+    
+    toast({
+      title: "Timer mode changed",
+      description: mode === 'infinite' 
+        ? "Infinite Training Mode activated" 
+        : `Timer set to ${mode.replace('min', ' minute')}${mode !== '1min' ? 's' : ''}`,
+    });
+  }, []);
+
   // Play audio (text-to-speech)
   const playAudio = useCallback((text: string, targetLanguage: string) => {
     // In a real implementation, we would connect to a TTS API
@@ -345,6 +464,7 @@ export const TypingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         stats,
         history,
         audioOptions,
+        timerMode,
         changeLanguage,
         changeDifficulty,
         updateTypedText,
@@ -354,6 +474,7 @@ export const TypingProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         resetTimer: resetTimerState,
         playAudio,
         changeAudioSpeed,
+        changeTimerMode,
       }}
     >
       {children}

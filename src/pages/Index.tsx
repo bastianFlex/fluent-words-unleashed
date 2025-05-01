@@ -3,6 +3,7 @@ import { TypingProvider } from "@/context/TypingContext";
 import TypingLayout from "@/components/TypingLayout";
 import LanguageSelector from "@/components/LanguageSelector";
 import DifficultySelector from "@/components/DifficultySelector";
+import TimerSelector from "@/components/TimerSelector";
 import AudioTranslator from "@/components/AudioTranslator";
 import WordMapping from "@/components/WordMapping";
 import TypingArea from "@/components/TypingArea";
@@ -16,6 +17,7 @@ const Index = () => {
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <LanguageSelector />
       <DifficultySelector />
+      <TimerSelector />
       <AudioTranslator />
       <WordMapping />
       

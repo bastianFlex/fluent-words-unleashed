@@ -33,6 +33,14 @@ export type LanguageMode =
   | 'fr-pt' 
   | 'es-pt';
 
+export type TimerMode = 
+  | '1min' 
+  | '2min' 
+  | '3min' 
+  | '4min' 
+  | '5min'
+  | 'infinite';
+
 export interface TypingStats {
   wpm: number;
   accuracy: number;
@@ -40,6 +48,7 @@ export interface TypingStats {
   incorrectKeystrokes: number;
   timer: number;
   isActive: boolean;
+  timerMode: TimerMode;
 }
 
 export interface HistoryEntry {

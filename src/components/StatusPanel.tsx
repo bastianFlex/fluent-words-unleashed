@@ -9,17 +9,40 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Timer, PauseCircle, StopCircle, RefreshCw } from "lucide-react";
+import { Timer, PauseCircle, StopCircle, RefreshCw, Infinity } from "lucide-react";
 import { formatTime } from "@/lib/utils";
 
 const StatusPanel = () => {
-  const { stats, toggleTimer, resetTyping, currentSentence, typedText } = useTyping();
+  const { stats, toggleTimer, resetTyping, currentSentence, typedText, timerMode } = useTyping();
   
   if (!currentSentence) return null;
   
   const progressPercentage = currentSentence.text.length > 0
     ? Math.min(Math.round((typedText.length / currentSentence.text.length) * 100), 100)
     : 0;
+  
+  // Calculate time remaining for timed modes
+  const getTimeDisplay = () => {
+    if (timerMode === 'infinite') {
+      return (
+        <>
+          <div className="text-sm text-muted-foreground flex items-center gap-1">
+            <Infinity className="h-4 w-4" /> Infinite
+          </div>
+          <div className="text-xl font-mono">{formatTime(stats.timer)}</div>
+        </>
+      );
+    } else {
+      const timeLimit = parseInt(timerMode) * 60;
+      const timeRemaining = Math.max(0, timeLimit - stats.timer);
+      return (
+        <>
+          <div className="text-sm text-muted-foreground">Time Remaining</div>
+          <div className="text-xl font-mono">{formatTime(timeRemaining)}</div>
+        </>
+      );
+    }
+  };
     
   return (
     <motion.div
@@ -37,8 +60,7 @@ const StatusPanel = () => {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <div className="bg-muted/20 rounded-md p-3 text-center">
-              <div className="text-sm text-muted-foreground">Time</div>
-              <div className="text-xl font-mono">{formatTime(stats.timer)}</div>
+              {getTimeDisplay()}
             </div>
             <div className="bg-muted/20 rounded-md p-3 text-center">
               <div className="text-sm text-muted-foreground">WPM</div>
